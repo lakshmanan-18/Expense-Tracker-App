@@ -221,11 +221,16 @@ fun AppNavigation(viewModel: MainViewModel) {
 
 @Composable
 fun MonthSelector(viewModel: MainViewModel) {
-    var showDropdown by remember { mutableStateOf(false) }
+    var showMonthDropdown by remember { mutableStateOf(false) }
+    var showYearDropdown by remember { mutableStateOf(false) }
 
-    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // Month selector
         Surface(
-            modifier = Modifier.fillMaxWidth().clickable { showDropdown = true },
+            modifier = Modifier.weight(1f).clickable { showMonthDropdown = true },
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
             tonalElevation = 2.dp
@@ -236,24 +241,59 @@ fun MonthSelector(viewModel: MainViewModel) {
                 horizontalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = "${MONTHS[viewModel.selectedMonth.value].take(3)} ${viewModel.selectedYear.value}",
+                    text = MONTHS[viewModel.selectedMonth.value],
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
                 Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
             }
+            
+            DropdownMenu(expanded = showMonthDropdown, onDismissRequest = { showMonthDropdown = false }) {
+                MONTHS.forEachIndexed { index, name ->
+                    DropdownMenuItem(
+                        text = { Text(name) },
+                        onClick = {
+                            viewModel.selectedMonth.value = index
+                            showMonthDropdown = false
+                        }
+                    )
+                }
+            }
         }
 
-        DropdownMenu(expanded = showDropdown, onDismissRequest = { showDropdown = false }) {
-            MONTHS.forEachIndexed { index, name ->
-                DropdownMenuItem(
-                    text = { Text(name) },
-                    onClick = {
-                        viewModel.selectedMonth.value = index
-                        showDropdown = false
-                    }
+        // Year selector
+        Surface(
+            modifier = Modifier.weight(0.6f).clickable { showYearDropdown = true },
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f),
+            tonalElevation = 2.dp
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = viewModel.selectedYear.value.toString(),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
+                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+            }
+            
+            val currentYear = Calendar.getInstance().get(Calendar.YEAR)
+            DropdownMenu(expanded = showYearDropdown, onDismissRequest = { showYearDropdown = false }) {
+                ((currentYear - 5)..(currentYear + 5)).forEach { year ->
+                    DropdownMenuItem(
+                        text = { Text(year.toString()) },
+                        onClick = {
+                            viewModel.selectedYear.value = year
+                            showYearDropdown = false
+                        }
+                    )
+                }
             }
         }
     }
@@ -326,7 +366,7 @@ fun AnalysisScreen(viewModel: MainViewModel) {
     
     var selectedSummary by remember { mutableStateOf("Spent") }
 
-    Column(modifier = Modifier.fillMaxSize().background(Color.White).verticalScroll(rememberScrollState())) {
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).verticalScroll(rememberScrollState())) {
         AnalysisTopTabs()
         AnalysisFilterRow()
         Spacer(modifier = Modifier.height(16.dp))
@@ -372,13 +412,13 @@ fun AnalysisTopTabs() {
     ScrollableTabRow(
         selectedTabIndex = selectedTab,
         edgePadding = 16.dp,
-        containerColor = Color.White,
-        contentColor = Color.Black,
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
         indicator = { tabPositions ->
             if (tabPositions.isNotEmpty()) {
                 TabRowDefaults.SecondaryIndicator(
                     Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                    color = Color.Black
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         },
@@ -452,9 +492,9 @@ fun AnalysisMonthNavigator(viewModel: MainViewModel) {
 
 @Composable
 fun SummaryBox(label: String, amount: Double, isActive: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    val backgroundColor = if (isActive) Color.Black else Color.White
-    val contentColor = if (isActive) Color.White else Color.Black
-    val borderColor = Color.LightGray.copy(alpha = 0.5f)
+    val backgroundColor = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
+    val contentColor = if (isActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+    val borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
 
     Surface(
         modifier = modifier.fillMaxHeight().clickable { onClick() },
@@ -578,19 +618,21 @@ fun CumulativeDataChart(
     val maxChartVal = (cumulativeData.maxOrNull() ?: 0.0).coerceAtLeast(targetValue).coerceAtLeast(1000.0)
     val chartColor = if (isIncome) Color(0xFF2E7D32) else Color(0xFF2E7D32) // Keeping green as per reference
     val areaColor = if (isIncome) Color(0xFF4CAF50) else Color(0xFF4CAF50)
+    val gridLineColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     Box(modifier = Modifier.fillMaxWidth().height(250.dp).padding(16.dp)) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val width = size.width
             val height = size.height
-            val spacingX = width / (if (daysInMonth > 1) (daysInMonth - 1) else 1).toFloat()
+            val actualSpacingX = width / (if (daysInMonth > 1) (daysInMonth - 1) else 1).toFloat()
             
             // Draw grid lines
             val gridLines = 5
             for (i in 0..gridLines) {
                 val y = height - (i * height / gridLines)
                 drawLine(
-                    color = Color.LightGray.copy(alpha = 0.3f),
+                    color = gridLineColor,
                     start = Offset(0f, y),
                     end = Offset(width, y),
                     strokeWidth = 1f
@@ -615,7 +657,7 @@ fun CumulativeDataChart(
             val path = Path()
             path.moveTo(0f, height)
             for (i in 1..daysInMonth) {
-                val x = (i - 1) * spacingX
+                val x = (i - 1) * actualSpacingX
                 val y = height - ((cumulativeData[i] / maxChartVal) * height.toDouble()).toFloat()
                 path.lineTo(x, y)
             }
@@ -628,14 +670,14 @@ fun CumulativeDataChart(
             if (daysInMonth > 0) {
                 linePath.moveTo(0f, height - ((cumulativeData[1] / maxChartVal) * height.toDouble()).toFloat())
                 for (i in 2..daysInMonth) {
-                    val x = (i - 1) * spacingX
+                    val x = (i - 1) * actualSpacingX
                     val y = height - ((cumulativeData[i] / maxChartVal) * height.toDouble()).toFloat()
                     linePath.lineTo(x, y)
                 }
                 drawPath(linePath, color = chartColor, style = Stroke(width = 4f))
                 
                 // Last point dot
-                val lastX = (daysInMonth - 1) * spacingX
+                val lastX = (daysInMonth - 1) * actualSpacingX
                 val lastY = height - ((cumulativeData[daysInMonth] / maxChartVal) * height.toDouble()).toFloat()
                 drawCircle(color = chartColor, radius = 8f, center = Offset(lastX, lastY))
             }
@@ -643,19 +685,19 @@ fun CumulativeDataChart(
         
         // Y-axis labels (Dynamic)
         Column(modifier = Modifier.fillMaxHeight().align(Alignment.TopEnd), verticalArrangement = Arrangement.SpaceBetween) {
-            Text("₹${formatAmount(maxChartVal)}", fontSize = 10.sp, color = Color.Gray)
-            Text("₹${formatAmount(maxChartVal*0.8)}", fontSize = 10.sp, color = Color.Gray)
-            Text("₹${formatAmount(maxChartVal*0.6)}", fontSize = 10.sp, color = Color.Gray)
-            Text("₹${formatAmount(maxChartVal*0.4)}", fontSize = 10.sp, color = Color.Gray)
-            Text("₹${formatAmount(maxChartVal*0.2)}", fontSize = 10.sp, color = Color.Gray)
+            Text("₹${formatAmount(maxChartVal)}", fontSize = 10.sp, color = labelColor)
+            Text("₹${formatAmount(maxChartVal*0.8)}", fontSize = 10.sp, color = labelColor)
+            Text("₹${formatAmount(maxChartVal*0.6)}", fontSize = 10.sp, color = labelColor)
+            Text("₹${formatAmount(maxChartVal*0.4)}", fontSize = 10.sp, color = labelColor)
+            Text("₹${formatAmount(maxChartVal*0.2)}", fontSize = 10.sp, color = labelColor)
             Spacer(modifier = Modifier.height(1.dp))
         }
         
         // X-axis labels
         Row(modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("1 ${MONTHS[month].take(3)}", fontSize = 10.sp, color = Color.Gray)
-            Text("15 ${MONTHS[month].take(3)}", fontSize = 10.sp, color = Color.Gray)
-            Text("${daysInMonth} ${MONTHS[month].take(3)}", fontSize = 10.sp, color = Color.Gray)
+            Text("1 ${MONTHS[month].take(3)}", fontSize = 10.sp, color = labelColor)
+            Text("15 ${MONTHS[month].take(3)}", fontSize = 10.sp, color = labelColor)
+            Text("${daysInMonth} ${MONTHS[month].take(3)}", fontSize = 10.sp, color = labelColor)
         }
     }
 }
